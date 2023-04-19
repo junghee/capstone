@@ -1,3 +1,11 @@
+!# issue 1997 notrack jmp
+!# CS_ARCH_X86, CS_MODE_64, None
+0x3e,0xff,0xe0 == notrack jmp rax
+
+!# issue 1997 notrack call
+!# CS_ARCH_X86, CS_MODE_64, None
+0x3e,0xff,0xd0 == notrack call rax
+
 !# issue 1873 AArch64 missing VAS specifiers in aliased instructions
 !# CS_ARCH_ARM64, CS_MODE_ARM, CS_OPT_DETAIL
 0x21,0x04,0x03,0x5e == mov b1, v1.b[1] ; operands[1].vas: 0x4 ; operands[1].vector_index: 1
