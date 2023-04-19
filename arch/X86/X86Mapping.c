@@ -1832,7 +1832,7 @@ static bool valid_notrack(cs_struct *h, unsigned int opcode)
 				return false;
 			case X86_INS_CALL:
 			case X86_INS_JMP:
-                return true;
+				return true;
 		}
 	}
 
