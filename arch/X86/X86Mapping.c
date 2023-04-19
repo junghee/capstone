@@ -1819,8 +1819,8 @@ static bool valid_repe(cs_struct *h, unsigned int opcode)
 	return false;
 }
 
-// given MCInst's id, find out if this insn is valid for NOTRACK prefix
-// NOTRACK prefix is valid for CALL/JMP
+// Given MCInst's id, find out if this insn is valid for NOTRACK prefix.
+// NOTRACK prefix is valid for CALL/JMP.
 static bool valid_notrack(cs_struct *h, unsigned int opcode)
 {
 	unsigned int id;
