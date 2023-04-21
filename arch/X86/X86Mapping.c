@@ -1975,9 +1975,9 @@ bool X86_lockrep(MCInst *MI, SStream *O)
 			opcode = MCInst_getOpcode(MI);
 			if (valid_notrack(MI->csh, opcode)) {
 				SStream_concat(O, "notrack|");
-            }
+			}
 			break;
-    }
+	}
 
 	// copy normalized prefix[] back to x86.prefix[]
 	if (MI->csh->detail)
