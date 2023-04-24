@@ -57,6 +57,7 @@ __all__ = [
     'CS_MODE_QPX',
     'CS_MODE_SPE',
     'CS_MODE_BOOKE',
+    'CS_MODE_PS',
     'CS_MODE_M68K_000',
     'CS_MODE_M68K_010',
     'CS_MODE_M68K_020',
@@ -193,6 +194,7 @@ CS_MODE_V9 = (1 << 4)          # Sparc V9 mode (for Sparc)
 CS_MODE_QPX = (1 << 4)         # Quad Processing eXtensions mode (PPC)
 CS_MODE_SPE = (1 << 5)         # Signal Processing Engine mode (PPC)
 CS_MODE_BOOKE = (1 << 6)       # Book-E mode (PPC)
+CS_MODE_PS = (1 << 7)          # Paired-singles mode (PPC)
 CS_MODE_M68K_000 = (1 << 1)    # M68K 68000 mode
 CS_MODE_M68K_010 = (1 << 2)    # M68K 68010 mode
 CS_MODE_M68K_020 = (1 << 3)    # M68K 68020 mode
@@ -670,9 +672,9 @@ class CsInsn(object):
         arch = self._cs.arch
         if arch == CS_ARCH_ARM:
             (self.usermode, self.vector_size, self.vector_data, self.cps_mode, self.cps_flag, self.cc, self.update_flags, \
-            self.writeback, self.mem_barrier, self.operands) = arm.get_arch_info(self._raw.detail.contents.arch.arm) 
+            self.writeback, self.post_index, self.mem_barrier, self.operands) = arm.get_arch_info(self._raw.detail.contents.arch.arm) 
         elif arch == CS_ARCH_ARM64:
-            (self.cc, self.update_flags, self.writeback, self.operands) = \
+            (self.cc, self.update_flags, self.writeback, self.post_index, self.operands) = \
                 arm64.get_arch_info(self._raw.detail.contents.arch.arm64)
         elif arch == CS_ARCH_X86:
             (self.prefix, self.opcode, self.rex, self.addr_size, \

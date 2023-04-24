@@ -68,6 +68,7 @@
 #include "arch/RISCV/RISCVModule.h"
 #include "arch/MOS65XX/MOS65XXModule.h"
 #include "arch/BPF/BPFModule.h"
+#include "arch/SH/SHModule.h"
 
 static const struct {
 	// constructor initialization
@@ -121,7 +122,7 @@ static const struct {
 		PPC_global_init,
 		PPC_option,
 		~(CS_MODE_LITTLE_ENDIAN | CS_MODE_32 | CS_MODE_64 | CS_MODE_BIG_ENDIAN
-				| CS_MODE_QPX),
+				| CS_MODE_QPX | CS_MODE_PS),
 	},
 #else
 	{ NULL, NULL, 0 },
@@ -231,6 +232,17 @@ static const struct {
 #else
 	{ NULL, NULL, 0 },
 #endif
+#ifdef CAPSTONE_HAS_SH
+	{
+		SH_global_init,
+		SH_option,
+		~(CS_MODE_SH2 | CS_MODE_SH2A | CS_MODE_SH3 |
+		  CS_MODE_SH4 | CS_MODE_SH4A |
+		  CS_MODE_SHFPU | CS_MODE_SHDSP|CS_MODE_BIG_ENDIAN),
+	},
+#else
+	{ NULL, NULL, 0 },
+#endif
 };
 
 // bitmask of enabled architectures
@@ -283,29 +295,31 @@ static const uint32_t all_arch = 0
 #ifdef CAPSTONE_HAS_RISCV
 	| (1 << CS_ARCH_RISCV)
 #endif
+#ifdef CAPSTONE_HAS_SH
+	| (1 << CS_ARCH_SH)
+#endif
 ;
-
 
 #if defined(CAPSTONE_USE_SYS_DYN_MEM)
 #if !defined(CAPSTONE_HAS_OSXKERNEL) && !defined(_KERNEL_MODE)
 // default
-cs_malloc_t cs_mem_malloc = malloc;
-cs_calloc_t cs_mem_calloc = calloc;
-cs_realloc_t cs_mem_realloc = realloc;
-cs_free_t cs_mem_free = free;
+thread_local cs_malloc_t cs_mem_malloc = malloc;
+thread_local cs_calloc_t cs_mem_calloc = calloc;
+thread_local cs_realloc_t cs_mem_realloc = realloc;
+thread_local cs_free_t cs_mem_free = free;
 #if defined(_WIN32_WCE)
-cs_vsnprintf_t cs_vsnprintf = _vsnprintf;
+thread_local cs_vsnprintf_t cs_vsnprintf = _vsnprintf;
 #else
-cs_vsnprintf_t cs_vsnprintf = vsnprintf;
+thread_local cs_vsnprintf_t cs_vsnprintf = vsnprintf;
 #endif  // defined(_WIN32_WCE)
 
 #elif defined(_KERNEL_MODE)
 // Windows driver
-cs_malloc_t cs_mem_malloc = cs_winkernel_malloc;
-cs_calloc_t cs_mem_calloc = cs_winkernel_calloc;
-cs_realloc_t cs_mem_realloc = cs_winkernel_realloc;
-cs_free_t cs_mem_free = cs_winkernel_free;
-cs_vsnprintf_t cs_vsnprintf = cs_winkernel_vsnprintf;
+thread_local cs_malloc_t cs_mem_malloc = cs_winkernel_malloc;
+thread_local cs_calloc_t cs_mem_calloc = cs_winkernel_calloc;
+thread_local cs_realloc_t cs_mem_realloc = cs_winkernel_realloc;
+thread_local cs_free_t cs_mem_free = cs_winkernel_free;
+thread_local cs_vsnprintf_t cs_vsnprintf = cs_winkernel_vsnprintf;
 #else
 // OSX kernel
 extern void* kern_os_malloc(size_t size);
@@ -317,19 +331,19 @@ static void* cs_kern_os_calloc(size_t num, size_t size)
 	return kern_os_malloc(num * size); // malloc bzeroes the buffer
 }
 
-cs_malloc_t cs_mem_malloc = kern_os_malloc;
-cs_calloc_t cs_mem_calloc = cs_kern_os_calloc;
-cs_realloc_t cs_mem_realloc = kern_os_realloc;
-cs_free_t cs_mem_free = kern_os_free;
-cs_vsnprintf_t cs_vsnprintf = vsnprintf;
+thread_local cs_malloc_t cs_mem_malloc = kern_os_malloc;
+thread_local cs_calloc_t cs_mem_calloc = cs_kern_os_calloc;
+thread_local cs_realloc_t cs_mem_realloc = kern_os_realloc;
+thread_local cs_free_t cs_mem_free = kern_os_free;
+thread_local cs_vsnprintf_t cs_vsnprintf = vsnprintf;
 #endif  // !defined(CAPSTONE_HAS_OSXKERNEL) && !defined(_KERNEL_MODE)
 #else
 // User-defined
-cs_malloc_t cs_mem_malloc = NULL;
-cs_calloc_t cs_mem_calloc = NULL;
-cs_realloc_t cs_mem_realloc = NULL;
-cs_free_t cs_mem_free = NULL;
-cs_vsnprintf_t cs_vsnprintf = NULL;
+thread_local cs_malloc_t cs_mem_malloc = NULL;
+thread_local cs_calloc_t cs_mem_calloc = NULL;
+thread_local cs_realloc_t cs_mem_realloc = NULL;
+thread_local cs_free_t cs_mem_free = NULL;
+thread_local cs_vsnprintf_t cs_vsnprintf = NULL;
 
 #endif  // defined(CAPSTONE_USE_SYS_DYN_MEM)
 
@@ -355,7 +369,8 @@ bool CAPSTONE_API cs_support(int query)
 				    (1 << CS_ARCH_M68K)  | (1 << CS_ARCH_TMS320C64X) |
 				    (1 << CS_ARCH_M680X) | (1 << CS_ARCH_EVM)        |
 				    (1 << CS_ARCH_RISCV) | (1 << CS_ARCH_MOS65XX)    | 
-				    (1 << CS_ARCH_WASM)  | (1 << CS_ARCH_BPF));
+				    (1 << CS_ARCH_WASM)  | (1 << CS_ARCH_BPF)        |
+				    (1 << CS_ARCH_SH));
 
 	if ((unsigned int)query < CS_ARCH_MAX)
 		return all_arch & (1 << query);
@@ -657,6 +672,8 @@ static uint8_t skipdata_size(cs_struct *handle)
 			if (handle->mode & CS_MODE_RISCVC)
 				return 2;
 			return 4;
+		case CS_ARCH_SH:
+			return 2;
 	}
 }
 
@@ -1550,6 +1567,14 @@ int CAPSTONE_API cs_op_index(csh ud, const cs_insn *insn, unsigned int op_type,
 		case CS_ARCH_RISCV:
 			for (i = 0; i < insn->detail->riscv.op_count; i++) {
 				if (insn->detail->riscv.operands[i].type == (riscv_op_type)op_type)
+					count++;
+				if (count == post)
+					return i;
+			}
+			break;
+		case CS_ARCH_SH:
+			for (i = 0; i < insn->detail->sh.op_count; i++) {
+				if (insn->detail->sh.operands[i].type == (sh_op_type)op_type)
 					count++;
 				if (count == post)
 					return i;
